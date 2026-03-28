@@ -51,13 +51,17 @@ export const JoinRoomCard: FC<Props> = ({ onFishjamIdChange, ...props }) => {
 
   const persistedValues = getPersistedFormValues();
 
-  const defaultValues = {
-    ...persistedValues,
+  const defaultValues: RoomForm = {
+    roomName: "",
+    peerName: "",
+    roomType: "conference",
     fishjamId: DEFAULT_FISHJAM_ID,
+    ...persistedValues,
   };
 
   const form = useForm<RoomForm>({
     defaultValues,
+    mode: "onSubmit",
   });
   const formFishjamId = form.watch("fishjamId");
 
@@ -126,19 +130,43 @@ export const JoinRoomCard: FC<Props> = ({ onFishjamIdChange, ...props }) => {
     roomType,
     fishjamId,
   }: RoomForm) => {
-    const peerToken = await getSandboxPeerToken(roomName, peerName, roomType);
+    console.log("Form submitted:", { roomName, peerName, roomType, fishjamId });
+    
+    if (!roomName) {
+      form.setError("root", { message: "Room ID is required" });
+      return;
+    }
+    
+    if (!peerName) {
+      form.setError("root", { message: "User name is required" });
+      return;
+    }
+    
+    if (!roomType) {
+      form.setError("root", { message: "Room type is required" });
+      return;
+    }
 
-    persistFormValues({
-      roomName,
-      peerName,
-      roomType,
-      fishjamId,
-    });
+    try {
+      const peerToken = await getSandboxPeerToken(roomName, peerName, roomType);
 
-    await joinRoom({
-      peerToken,
-      peerMetadata: { displayName: peerName },
-    });
+      persistFormValues({
+        roomName,
+        peerName,
+        roomType,
+        fishjamId,
+      });
+
+      await joinRoom({
+        peerToken,
+        peerMetadata: { displayName: peerName },
+      });
+    } catch (error) {
+      console.error("Failed to join room:", error);
+      form.setError("root", { 
+        message: error instanceof Error ? error.message : "Failed to join room" 
+      });
+    }
   };
 
   const error = form.formState.errors.root?.message;
@@ -200,7 +228,9 @@ export const JoinRoomCard: FC<Props> = ({ onFishjamIdChange, ...props }) => {
 
                 <div className="flex gap-3">
                   <Input
-                    {...form.register("roomName")}
+                    {...form.register("roomName", { 
+                      required: "Room ID is required" 
+                    })}
                     placeholder={isHost ? "Generated room ID" : "Paste shared room ID"}
                     readOnly={isHost}
                     className="border-0 border-b border-[#48474c]/70 rounded-none bg-[#131317] px-3 text-[#fcf8fe] h-11 text-base focus-visible:ring-1 focus-visible:ring-[#a8a4ff]"
@@ -228,6 +258,11 @@ export const JoinRoomCard: FC<Props> = ({ onFishjamIdChange, ...props }) => {
                     </>
                   )}
                 </div>
+                {form.formState.errors.roomName && (
+                  <p className="text-sm text-[#ff6e84]">
+                    {form.formState.errors.roomName.message}
+                  </p>
+                )}
               </div>
 
               <div className="flex flex-col space-y-2">
@@ -236,10 +271,17 @@ export const JoinRoomCard: FC<Props> = ({ onFishjamIdChange, ...props }) => {
                 </Label>
 
                 <Input
-                  {...form.register("peerName")}
+                  {...form.register("peerName", { 
+                    required: "User name is required" 
+                  })}
                   placeholder="Your name"
                   className="border-0 border-b border-[#48474c]/70 rounded-none bg-[#131317] px-3 text-[#fcf8fe] h-11 text-base focus-visible:ring-1 focus-visible:ring-[#a8a4ff]"
                 />
+                {form.formState.errors.peerName && (
+                  <p className="text-sm text-[#ff6e84]">
+                    {form.formState.errors.peerName.message}
+                  </p>
+                )}
               </div>
             </div>
 
