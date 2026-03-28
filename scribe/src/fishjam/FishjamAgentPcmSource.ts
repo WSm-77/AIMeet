@@ -59,18 +59,31 @@ export class FishjamAgentPcmSource {
       },
     } satisfies AgentCallbacks;
 
-    console.log("Connecting to FishJam...");
-
+    const requestedRoomId = this.options.roomId.trim();
     const rooms = await this.fishjamClient.getAllRooms();
-    const room = rooms[0];
+    const room = rooms.find((candidate) => candidate.id === requestedRoomId);
+
+    let targetRoomId = room?.id;
+    if (!targetRoomId && rooms.length > 0) {
+      targetRoomId = rooms[0].id;
+      console.warn(
+        `FishJam room ${requestedRoomId} was not found or is not accessible; using accessible room ${targetRoomId}`,
+      );
+    }
+
+    if (!targetRoomId) {
+      const createdRoom = await this.fishjamClient.createRoom();
+      targetRoomId = createdRoom.id;
+      console.warn(
+        `FishJam room ${requestedRoomId} was not found and no rooms were accessible; created room ${targetRoomId}`,
+      );
+    }
 
     const { agent } = await this.fishjamClient.createAgent(
-      room.id,
+      targetRoomId,
       agentOptions,
       callbacks,
     );
-
-    console.log("Connected to FishJam, waiting for audio data...");
 
     this.agent = agent as FishjamAgent;
 
@@ -82,7 +95,7 @@ export class FishjamAgentPcmSource {
     });
 
     console.debug(
-      `FishJam agent connected to room ${this.options.roomId} with 16kHz PCM output`,
+      `FishJam agent connected to room ${targetRoomId} with 16kHz PCM output`,
     );
   }
 

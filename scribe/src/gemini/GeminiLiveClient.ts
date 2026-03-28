@@ -1,6 +1,4 @@
 import { GoogleGenAI, Modality } from "@google/genai";
-
-import { saveNoteItemToolDeclaration } from "../schemas/saveNoteItemSchema";
 import type { GeminiFunctionCall } from "../types";
 
 const PCM_CHUNK_BYTES = 3200;
@@ -10,12 +8,22 @@ type GeminiLiveClientOptions = {
   apiKey: string;
   model: string;
   onFunctionCall: (call: GeminiFunctionCall) => void;
+  onModelText?: (text: string) => void;
+  onModelAudioChunk?: (chunk: Buffer, mimeType: string) => void;
 };
 
 type GeminiServerMessage = {
   serverContent?: {
     modelTurn?: {
       parts?: Array<Record<string, unknown>>;
+    };
+    inputTranscription?: {
+      text?: string;
+      finished?: boolean;
+    };
+    outputTranscription?: {
+      text?: string;
+      finished?: boolean;
     };
     toolCall?: {
       functionCalls?: Array<{ id?: string; name?: string; args?: unknown }>;
@@ -31,7 +39,8 @@ type GeminiServerMessage = {
 export class GeminiLiveClient {
   private session?: {
     sendRealtimeInput: (payload: {
-      mediaChunks: Array<{ mimeType: string; data: string }>;
+      audio?: { mimeType: string; data: string };
+      media?: { mimeType: string; data: string };
     }) => void;
     close: () => void;
   };
@@ -61,7 +70,8 @@ export class GeminiLiveClient {
       model: this.options.model,
       config: {
         responseModalities: [Modality.AUDIO],
-        tools: [{ functionDeclarations: [saveNoteItemToolDeclaration] }],
+        inputAudioTranscription: {},
+        outputAudioTranscription: {},
       },
       callbacks: {
         onopen: () => {
@@ -76,7 +86,9 @@ export class GeminiLiveClient {
           console.error("Gemini live client error", error);
         },
         onclose: (event) => {
-          console.warn(`Gemini websocket closed ${event.reason ?? ""}`);
+          console.warn(
+            `Gemini websocket closed (${event.code ?? "unknown"}) ${event.reason ?? ""}`,
+          );
         },
       },
     });
@@ -100,18 +112,74 @@ export class GeminiLiveClient {
 
   private sendRealtimeAudioChunk(chunk: Buffer): void {
     this.session?.sendRealtimeInput({
-      mediaChunks: [
-        { mimeType: PCM_MIME_TYPE, data: chunk.toString("base64") },
-      ],
+      audio: { mimeType: PCM_MIME_TYPE, data: chunk.toString("base64") },
     });
   }
 
   private handleMessage(message: GeminiServerMessage): void {
+    const outputTranscription = message.serverContent?.outputTranscription?.text;
+    if (
+      typeof outputTranscription === "string" &&
+      outputTranscription.trim().length > 0
+    ) {
+      this.options.onModelText?.(outputTranscription);
+    }
+
+    const texts = this.extractModelTexts(message);
+    for (const text of texts) {
+      this.options.onModelText?.(text);
+    }
+
+    const audioChunks = this.extractModelAudioChunks(message);
+    for (const audioChunk of audioChunks) {
+      this.options.onModelAudioChunk?.(audioChunk.chunk, audioChunk.mimeType);
+    }
+
     const functionCalls = this.extractFunctionCalls(message);
     for (const call of functionCalls) {
       if (call.name !== "save_note_item") continue;
       this.options.onFunctionCall(call);
     }
+  }
+
+  private extractModelTexts(message: GeminiServerMessage): string[] {
+    const texts: string[] = [];
+    const modelParts = message.serverContent?.modelTurn?.parts ?? [];
+
+    for (const part of modelParts) {
+      const maybeText = part.text;
+      if (typeof maybeText === "string" && maybeText.trim().length > 0) {
+        texts.push(maybeText);
+      }
+    }
+
+    return texts;
+  }
+
+  private extractModelAudioChunks(
+    message: GeminiServerMessage,
+  ): Array<{ chunk: Buffer; mimeType: string }> {
+    const chunks: Array<{ chunk: Buffer; mimeType: string }> = [];
+    const modelParts = message.serverContent?.modelTurn?.parts ?? [];
+
+    for (const part of modelParts) {
+      const maybeInlineData = part.inlineData;
+      if (!maybeInlineData || typeof maybeInlineData !== "object") continue;
+
+      const inlineData = maybeInlineData as Record<string, unknown>;
+      const mimeType = inlineData.mimeType;
+      const data = inlineData.data;
+
+      if (typeof mimeType !== "string" || typeof data !== "string") continue;
+      if (!mimeType.startsWith("audio/")) continue;
+
+      chunks.push({
+        mimeType,
+        chunk: Buffer.from(data, "base64"),
+      });
+    }
+
+    return chunks;
   }
 
   private extractFunctionCalls(
