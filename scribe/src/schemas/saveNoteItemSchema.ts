@@ -2,14 +2,12 @@ import { NOTE_ITEM_TYPES } from "../types";
 
 export const saveNoteItemSchema = {
   type: "object",
-  additionalProperties: false,
   required: ["content", "type"],
   properties: {
     content: {
       type: "string",
       description:
         "The note text extracted from the ongoing conversation or meeting audio.",
-      minLength: 1,
     },
     type: {
       type: "string",
@@ -18,10 +16,9 @@ export const saveNoteItemSchema = {
         "Semantic type for the note. Allowed values: action_item, decision, question, summary.",
     },
     assignee: {
-      type: ["string", "null"],
+      type: "string",
       description:
-        "Optional owner of the action item. Use null when no assignee is known.",
-      default: null,
+        "Optional owner of the action item. Omit when no assignee is known.",
     },
   },
 } as const;
