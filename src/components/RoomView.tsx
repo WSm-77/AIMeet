@@ -2,6 +2,8 @@ import { type PeerId, type Track, usePeers } from "@fishjam-cloud/react-client";
 import { MessageSquareText, Users } from "lucide-react";
 
 import { AiNotesPanel } from "./AiNotesPanel";
+import { MessageSquareText, Sparkles, Users } from "lucide-react";
+
 import { CallToolbar } from "./CallToolbar";
 import { InteractiveNotes } from "./InteractiveNotes";
 import { Tile } from "./Tile";
