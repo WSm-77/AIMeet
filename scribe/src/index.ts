@@ -1,64 +1,12 @@
-import { createWriteStream, existsSync, mkdirSync } from "node:fs";
-import { dirname } from "node:path";
-
+import { ChirpLiveClient } from "./chirp/ChirpLiveClient";
 import { loadConfig } from "./config";
 import { FishjamAgentPcmSource } from "./fishjam/FishjamAgentPcmSource";
-import { GeminiLiveClient } from "./gemini/GeminiLiveClient";
 import { PhoenixChannelClient } from "./phoenix/PhoenixChannelClient";
-import type { SaveNoteItemArgs, SaveNoteItemPayload } from "./types";
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
-
-const parseSaveNoteItemArgs = (value: unknown): SaveNoteItemArgs | null => {
-  if (!isRecord(value)) return null;
-
-  const content = value.content;
-  const type = value.type;
-  const assignee = value.assignee;
-
-  if (typeof content !== "string" || content.trim().length === 0) return null;
-  if (
-    type !== "action_item" &&
-    type !== "decision" &&
-    type !== "question" &&
-    type !== "summary"
-  ) {
-    return null;
-  }
-
-  if (
-    assignee !== undefined &&
-    assignee !== null &&
-    typeof assignee !== "string"
-  ) {
-    return null;
-  }
-
-  return {
-    content,
-    type,
-    assignee: typeof assignee === "string" ? assignee : null,
-  };
-};
+import type { TranscriptPayload } from "./types";
 
 const run = async (): Promise<void> => {
   const config = loadConfig();
-  const disablePcmStream = process.env.GEMINI_DISABLE_PCM_STREAM === "1";
-  const modelAudioDumpPath = process.env.GEMINI_AUDIO_DUMP_PATH;
-  const modelAudioDumpEnabled =
-    typeof modelAudioDumpPath === "string" && modelAudioDumpPath.length > 0;
-
-  if (modelAudioDumpEnabled) {
-    const dumpDirectory = dirname(modelAudioDumpPath);
-    if (!existsSync(dumpDirectory)) {
-      mkdirSync(dumpDirectory, { recursive: true });
-    }
-  }
-
-  const modelAudioDumpStream = modelAudioDumpEnabled
-    ? createWriteStream(modelAudioDumpPath, { flags: "a" })
-    : undefined;
+  const disablePcmStream = process.env.CHIRP_DISABLE_PCM_STREAM === "1";
 
   const fishjamAgent = new FishjamAgentPcmSource({
     fishjamId: config.fishjam.fishjamId,
@@ -72,66 +20,49 @@ const run = async (): Promise<void> => {
     topic: config.phoenix.topic,
   });
 
-  const gemini = new GeminiLiveClient({
-    apiKey: config.gemini.apiKey,
-    model: config.gemini.model,
-    onModelText: (text) => {
-      console.log(`[Gemini text] ${text}`);
-    },
-    onModelAudioChunk: (chunk, mimeType) => {
-      if (!modelAudioDumpStream) return;
-      modelAudioDumpStream.write(chunk);
-      console.debug(
-        `[Gemini audio] ${chunk.length} bytes (${mimeType}) appended to ${modelAudioDumpPath}`,
-      );
-    },
-    onFunctionCall: (call) => {
-      const parsed = parseSaveNoteItemArgs(call.args);
-      if (!parsed) {
-        console.warn("Received invalid save_note_item args", call.args);
-        return;
-      }
+  const chirp = new ChirpLiveClient({
+    projectId: config.chirp.projectId,
+    location: config.chirp.location,
+    recognizer: config.chirp.recognizer,
+    model: config.chirp.model,
+    languageCodes: config.chirp.languageCodes,
+    onTranscript: (text, isFinal) => {
+      const stage = isFinal ? "final" : "interim";
+      console.log(`[Chirp ${stage}] ${text}`);
 
-      const payload: SaveNoteItemPayload = {
-        ...parsed,
-        source: "gemini_live",
-        callId: call.id,
+      const payload: TranscriptPayload = {
+        text,
+        isFinal,
+        source: "chirp_3",
         roomId: config.fishjam.roomId,
         timestamp: new Date().toISOString(),
       };
 
       phoenix.broadcast(config.phoenix.event, payload);
-      console.debug("Broadcasted note item", payload);
     },
   });
 
   await fishjamAgent.start();
   // await phoenix.connect();
-  await gemini.connect();
+  await chirp.connect();
 
   if (!disablePcmStream) {
     const pcmStream = fishjamAgent.createPcmStream();
-    void gemini.streamPcm(pcmStream).catch((error) => {
-      console.error("Gemini PCM stream failed", error);
+    void chirp.streamPcm(pcmStream).catch((error) => {
+      console.error("Chirp PCM stream failed", error);
     });
   } else {
-    console.warn("Gemini PCM streaming is disabled by GEMINI_DISABLE_PCM_STREAM=1");
+    console.warn("Chirp PCM streaming is disabled by CHIRP_DISABLE_PCM_STREAM=1");
   }
 
   console.debug("Scribe service started");
-  console.debug("Gemini response mode: audio + CLI transcription");
-  if (modelAudioDumpEnabled) {
-    console.debug(
-      `Gemini audio dump enabled: ${modelAudioDumpPath} (16kHz PCM stream)`,
-    );
-  }
+  console.debug("Chirp response mode: live transcript only");
 
   const shutdown = async (): Promise<void> => {
     console.warn("Shutting down Scribe service");
-    gemini.close();
+    chirp.close();
     phoenix.close();
     await fishjamAgent.stop();
-    modelAudioDumpStream?.end();
     process.exit(0);
   };
 
@@ -144,6 +75,12 @@ const run = async (): Promise<void> => {
 };
 
 void run().catch((error) => {
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.includes("Could not load the default credentials")) {
+    console.error(
+      "Google ADC is not configured. Set GOOGLE_APPLICATION_CREDENTIALS to a service account JSON key, or run: gcloud auth application-default login",
+    );
+  }
   console.error("Failed to start Scribe service", error);
   process.exit(1);
 });

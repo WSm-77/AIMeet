@@ -1,6 +1,7 @@
-const DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-live-preview";
-const DEFAULT_GEMINI_WS_URL =
-  "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent";
+const DEFAULT_CHIRP_MODEL = "chirp_3";
+const DEFAULT_CHIRP_LOCATION = "global";
+const DEFAULT_CHIRP_RECOGNIZER = "_";
+const DEFAULT_CHIRP_LANGUAGE_CODES = ["en-US"];
 
 const readRequired = (name: string): string => {
   const value = process.env[name];
@@ -11,10 +12,12 @@ const readRequired = (name: string): string => {
 };
 
 export type ScribeConfig = {
-  gemini: {
-    apiKey: string;
+  chirp: {
+    projectId: string;
+    location: string;
+    recognizer: string;
     model: string;
-    wsUrl: string;
+    languageCodes: string[];
   };
   fishjam: {
     fishjamId: string;
@@ -30,7 +33,14 @@ export type ScribeConfig = {
 };
 
 export const loadConfig = (): ScribeConfig => {
-  const geminiApiKey = readRequired("GEMINI_API_KEY");
+  const chirpProjectId =
+    process.env.CHIRP_PROJECT_ID ?? process.env.GOOGLE_CLOUD_PROJECT;
+  if (!chirpProjectId || chirpProjectId.trim().length === 0) {
+    throw new Error(
+      "Missing required environment variable: CHIRP_PROJECT_ID (or GOOGLE_CLOUD_PROJECT)",
+    );
+  }
+
   const phoenixWsUrl = readRequired("PHOENIX_WS_URL");
   const fishjamId = readRequired("FISHJAM_ID");
   const managementToken = readRequired("FISHJAM_MANAGEMENT_TOKEN");
@@ -43,11 +53,26 @@ export const loadConfig = (): ScribeConfig => {
     );
   }
 
+  const rawLanguageCodes =
+    process.env.CHIRP_LANGUAGE_CODES ?? DEFAULT_CHIRP_LANGUAGE_CODES.join(",");
+  const languageCodes = rawLanguageCodes
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+
+  if (languageCodes.length === 0) {
+    throw new Error(
+      "Environment variable CHIRP_LANGUAGE_CODES must contain at least one language code",
+    );
+  }
+
   return {
-    gemini: {
-      apiKey: geminiApiKey,
-      model: process.env.GEMINI_MODEL ?? DEFAULT_GEMINI_MODEL,
-      wsUrl: process.env.GEMINI_LIVE_WS_URL ?? DEFAULT_GEMINI_WS_URL,
+    chirp: {
+      projectId: chirpProjectId,
+      location: process.env.CHIRP_LOCATION ?? DEFAULT_CHIRP_LOCATION,
+      recognizer: process.env.CHIRP_RECOGNIZER ?? DEFAULT_CHIRP_RECOGNIZER,
+      model: process.env.CHIRP_MODEL ?? DEFAULT_CHIRP_MODEL,
+      languageCodes,
     },
     fishjam: {
       fishjamId,
@@ -58,7 +83,7 @@ export const loadConfig = (): ScribeConfig => {
     phoenix: {
       wsUrl: phoenixWsUrl,
       topic: process.env.PHOENIX_TOPIC ?? "scribe:global",
-      event: process.env.PHOENIX_EVENT ?? "save_note_item",
+      event: process.env.PHOENIX_EVENT ?? "live_transcript",
     },
   };
 };
