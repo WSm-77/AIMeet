@@ -63,7 +63,7 @@ function Router({ onFishjamIdChange }: Props) {
                 </p>
 
                 <h1 className="font-headline text-5xl leading-[0.95] text-[#fcf8fe] sm:text-6xl lg:text-7xl">
-                  Where Ideas Ignite
+                  AIMeet
                 </h1>
 
                 <p className="font-body max-w-2xl text-base text-[#acaab0] sm:text-lg">
