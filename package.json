@@ -1,0 +1,9 @@
+{
+  "name": "twoja-swm_x_gemini_hackathon",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "dotenv": "^17.3.1"
+  }
+}
