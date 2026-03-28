@@ -81,11 +81,14 @@ export const RoomView = () => {
 
   useEffect(() => {
     let isDisposed = false;
+    let isIntentionalClose = false;
     let socket: WebSocket | undefined;
     let reconnectTimer: number | undefined;
 
     const connect = () => {
       if (isDisposed) return;
+
+      isIntentionalClose = false;
 
       setAiNotesStatus("connecting");
       socket = new WebSocket(NOTES_WS_URL);
@@ -119,17 +122,19 @@ export const RoomView = () => {
       };
 
       socket.onerror = () => {
+        if (isDisposed || isIntentionalClose) return;
         setAiNotesStatus("disconnected");
         console.warn(`AI notes websocket error for ${NOTES_WS_URL}`);
       };
 
       socket.onclose = (event) => {
+        if (isDisposed || isIntentionalClose) return;
+
         setAiNotesStatus("disconnected");
         console.warn(
           `AI notes websocket closed (${event.code}) ${event.reason || ""}`,
         );
 
-        if (isDisposed) return;
         reconnectTimer = window.setTimeout(connect, 2_000);
       };
     };
@@ -143,7 +148,17 @@ export const RoomView = () => {
         window.clearTimeout(reconnectTimer);
       }
 
-      socket?.close(1000, "Room view unmounted");
+      if (socket) {
+        isIntentionalClose = true;
+        socket.onopen = null;
+        socket.onmessage = null;
+        socket.onerror = null;
+        socket.onclose = null;
+
+        if (socket.readyState === WebSocket.CONNECTING || socket.readyState === WebSocket.OPEN) {
+          socket.close(1000, "Room view unmounted");
+        }
+      }
     };
   }, [roomId]);
 

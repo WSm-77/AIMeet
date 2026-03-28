@@ -296,7 +296,9 @@ class ScribeSessionManager {
     return this.runExclusive(async () => {
       const fishjamId = this.options.defaultFishjamId;
       const fishjamClient = this.getOrCreateFishjamClient(fishjamId);
+      console.log(`Fetching rooms for Fishjam ${fishjamId}...`);
       const allRooms = await fishjamClient.getAllRooms();
+      console.log(`Found ${allRooms.length} rooms on Fishjam ${fishjamId}`);
       const now = Date.now();
 
       const joined: SessionStatus[] = [];
@@ -475,7 +477,7 @@ const run = async (): Promise<void> => {
       if (request.method === "POST" && request.url === "/sessions/join") {
         try {
           await readJsonBody(request);
-
+          console.log("Received request to join scribe session");
           const result = await sessionManager.joinSession();
           const hasNoActiveSessions = result.active.length === 0;
           const hasFailures = result.failed.length > 0;
