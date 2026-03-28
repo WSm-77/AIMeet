@@ -6,7 +6,7 @@ import {
 } from "@fishjam-cloud/react-client";
 import { Loader2, MessageCircleWarning } from "lucide-react";
 import type { FC } from "react";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -66,6 +66,11 @@ export const JoinRoomCard: FC<Props> = ({ onFishjamIdChange, ...props }) => {
   }, [formFishjamId, onFishjamIdChange]);
 
   const { getSandboxPeerToken } = useSandbox();
+  const [isHost, setIsHost] = useState(true);
+
+  const generateRoomId = useCallback(() => {
+    return crypto.randomUUID();
+  }, []);
 
   const initializeAndReport = useCallback(async () => {
     const { errors } = await initializeDevices({
@@ -87,6 +92,33 @@ export const JoinRoomCard: FC<Props> = ({ onFishjamIdChange, ...props }) => {
   useEffect(() => {
     initializeAndReport();
   }, [initializeAndReport]);
+
+  useEffect(() => {
+    if (!isHost) return;
+
+    form.setValue("roomName", generateRoomId(), {
+      shouldDirty: true,
+      shouldTouch: true,
+    });
+  }, [form, generateRoomId, isHost]);
+
+  const onCopyRoomId = async () => {
+    const roomId = form.getValues("roomName");
+
+    if (!roomId) {
+      toast.error("No room ID to copy yet");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(roomId);
+      toast.success("Room ID copied. Share it with participants.", {
+        position: "top-center",
+      });
+    } catch {
+      toast.error("Could not copy room ID", { position: "top-center" });
+    }
+  };
 
   const onJoinRoom = async ({
     roomName,
@@ -149,15 +181,64 @@ export const JoinRoomCard: FC<Props> = ({ onFishjamIdChange, ...props }) => {
 
             <div className="flex flex-row space-x-2">
               <div className="flex flex-1 flex-col space-y-1.5">
+                <Label className="text-[#fcf8fe]">Role</Label>
+
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={isHost ? "default" : "outline"}
+                    className="h-9 flex-1"
+                    onClick={() => setIsHost(true)}
+                  >
+                    Host
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant={!isHost ? "default" : "outline"}
+                    className="h-9 flex-1"
+                    onClick={() => setIsHost(false)}
+                  >
+                    Participant
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex flex-1 flex-col space-y-1.5">
                 <Label htmlFor="roomName" className="text-[#fcf8fe]">
-                  Room name
+                  Room ID
                 </Label>
 
-                <Input
-                  {...form.register("roomName")}
-                  placeholder="Name of your room"
-                  className="border-0 border-b border-[#48474c]/70 rounded-none bg-[#131317] px-3 text-[#fcf8fe] focus-visible:ring-1 focus-visible:ring-[#a8a4ff]"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    {...form.register("roomName")}
+                    placeholder={isHost ? "Generated room ID" : "Paste shared room ID"}
+                    readOnly={isHost}
+                    className="border-0 border-b border-[#48474c]/70 rounded-none bg-[#131317] px-3 text-[#fcf8fe] focus-visible:ring-1 focus-visible:ring-[#a8a4ff]"
+                  />
+
+                  {isHost && (
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-9"
+                        onClick={() => form.setValue("roomName", generateRoomId())}
+                      >
+                        New
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-9"
+                        onClick={onCopyRoomId}
+                      >
+                        Copy
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
 
               <div className="flex flex-1 flex-col space-y-1.5">
