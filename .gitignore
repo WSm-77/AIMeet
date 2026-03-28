@@ -23,5 +23,10 @@ dist-ssr
 *.sln
 *.sw?
 
-.env
 credentials.json
+# Github
+.github/
+
+# Environment variables
+.env*
+!.env.example
