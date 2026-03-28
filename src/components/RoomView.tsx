@@ -7,7 +7,11 @@ import { Tile } from "./Tile";
 export const RoomView = () => {
   const { localPeer, remotePeers } = usePeers<{ displayName: string }>();
 
-  const tiles = [] as Array<{
+
+  // Custom logic: if local user is sharing screen, show screen in spotlight, camera as PiP
+  let spotlightTile = null;
+  let pipTile = null;
+  const secondaryTiles = [] as Array<{
     key: string;
     id: PeerId;
     name: string;
@@ -17,31 +21,43 @@ export const RoomView = () => {
   }>;
 
   if (localPeer) {
-    tiles.push({
-      key: `local-${localPeer.id}`,
-      id: localPeer.id,
-      name: "You",
-      videoTrack: localPeer.cameraTrack,
-      audioTrack: localPeer.microphoneTrack,
-      isLocal: true,
-    });
-
     if (localPeer.screenShareVideoTrack) {
-      tiles.push({
+      // Screen share as main
+      spotlightTile = {
         key: `local-screen-${localPeer.id}`,
         id: localPeer.id,
         name: "Your screen share",
         videoTrack: localPeer.screenShareVideoTrack,
         audioTrack: localPeer.screenShareAudioTrack,
         isLocal: true,
-      });
+      };
+      // Camera as PiP
+      pipTile = {
+        key: `local-${localPeer.id}`,
+        id: localPeer.id,
+        name: "You",
+        videoTrack: localPeer.cameraTrack,
+        audioTrack: localPeer.microphoneTrack,
+        isLocal: true,
+      };
+    } else {
+      // Camera as main
+      spotlightTile = {
+        key: `local-${localPeer.id}`,
+        id: localPeer.id,
+        name: "You",
+        videoTrack: localPeer.cameraTrack,
+        audioTrack: localPeer.microphoneTrack,
+        isLocal: true,
+      };
     }
   }
 
+  // Add remote peers and their screen shares to secondaryTiles
   remotePeers.forEach((peer) => {
     const label = peer.metadata?.peer?.displayName ?? peer.id;
 
-    tiles.push({
+    secondaryTiles.push({
       key: `remote-${peer.id}`,
       id: peer.id,
       name: label,
@@ -50,7 +66,7 @@ export const RoomView = () => {
     });
 
     if (peer.screenShareVideoTrack) {
-      tiles.push({
+      secondaryTiles.push({
         key: `remote-screen-${peer.id}`,
         id: peer.id,
         name: `Screen share: ${label}`,
@@ -60,8 +76,8 @@ export const RoomView = () => {
     }
   });
 
-  const spotlightTile = tiles[0];
-  const secondaryTiles = tiles.slice(1);
+
+
 
   const participantCount = (localPeer ? 1 : 0) + remotePeers.length;
 
@@ -90,16 +106,31 @@ export const RoomView = () => {
       </header>
 
       <section className="relative grid flex-1 gap-4 overflow-y-auto px-4 pb-28 pt-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:px-6">
+
         <div className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-4">
           {spotlightTile ? (
-            <Tile
-              className="min-h-[300px] rounded-[20px] border-[#48474c]/40 bg-[#131317]/90 lg:min-h-[420px]"
-              id={spotlightTile.id}
-              name={spotlightTile.name}
-              videoTrack={spotlightTile.videoTrack}
-              audioTrack={spotlightTile.audioTrack}
-              isLocal={spotlightTile.isLocal}
-            />
+            <div className="relative min-h-[300px] rounded-[20px] border-[#48474c]/40 bg-[#131317]/90 lg:min-h-[420px]">
+              <Tile
+                id={spotlightTile.id}
+                name={spotlightTile.name}
+                videoTrack={spotlightTile.videoTrack}
+                audioTrack={spotlightTile.audioTrack}
+                isLocal={spotlightTile.isLocal}
+                className="h-full w-full"
+              />
+              {pipTile && pipTile.videoTrack && (
+                <div className="absolute bottom-4 right-4 z-50 w-40 h-28 rounded-xl border-2 border-[#a8a4ff] bg-[#19191e] shadow-lg overflow-hidden">
+                  <Tile
+                    id={pipTile.id}
+                    name={pipTile.name}
+                    videoTrack={pipTile.videoTrack}
+                    audioTrack={pipTile.audioTrack}
+                    isLocal={pipTile.isLocal}
+                    className="h-full w-full"
+                  />
+                </div>
+              )}
+            </div>
           ) : (
             <div className="grid min-h-[300px] place-items-center rounded-[20px] border border-[#48474c]/40 bg-[#131317]/90 lg:min-h-[420px]">
               <p className="font-body text-sm text-[#acaab0]">Waiting for participants to join...</p>
