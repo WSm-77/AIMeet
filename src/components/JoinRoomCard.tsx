@@ -131,17 +131,17 @@ export const JoinRoomCard: FC<Props> = ({ onFishjamIdChange, ...props }) => {
     fishjamId,
   }: RoomForm) => {
     console.log("Form submitted:", { roomName, peerName, roomType, fishjamId });
-    
+
     if (!roomName) {
       form.setError("root", { message: "Room ID is required" });
       return;
     }
-    
+
     if (!peerName) {
       form.setError("root", { message: "User name is required" });
       return;
     }
-    
+
     if (!roomType) {
       form.setError("root", { message: "Room type is required" });
       return;
@@ -163,8 +163,8 @@ export const JoinRoomCard: FC<Props> = ({ onFishjamIdChange, ...props }) => {
       });
     } catch (error) {
       console.error("Failed to join room:", error);
-      form.setError("root", { 
-        message: error instanceof Error ? error.message : "Failed to join room" 
+      form.setError("root", {
+        message: error instanceof Error ? error.message : "Failed to join room"
       });
     }
   };
@@ -203,7 +203,7 @@ export const JoinRoomCard: FC<Props> = ({ onFishjamIdChange, ...props }) => {
                 <div className="flex gap-3">
                   <Button
                     type="button"
-                    variant={isHost ? "default" : "outline"}
+                    variant={isHost ? "outline" : "default"}
                     className="h-11 flex-1 text-base"
                     onClick={() => setIsHost(true)}
                   >
@@ -212,7 +212,7 @@ export const JoinRoomCard: FC<Props> = ({ onFishjamIdChange, ...props }) => {
 
                   <Button
                     type="button"
-                    variant={!isHost ? "default" : "outline"}
+                    variant={!isHost ? "outline" : "default"}
                     className="h-11 flex-1 text-base"
                     onClick={() => setIsHost(false)}
                   >
@@ -228,8 +228,8 @@ export const JoinRoomCard: FC<Props> = ({ onFishjamIdChange, ...props }) => {
 
                 <div className="flex gap-3">
                   <Input
-                    {...form.register("roomName", { 
-                      required: "Room ID is required" 
+                    {...form.register("roomName", {
+                      required: "Room ID is required"
                     })}
                     placeholder={isHost ? "Generated room ID" : "Paste shared room ID"}
                     readOnly={isHost}
@@ -271,8 +271,8 @@ export const JoinRoomCard: FC<Props> = ({ onFishjamIdChange, ...props }) => {
                 </Label>
 
                 <Input
-                  {...form.register("peerName", { 
-                    required: "User name is required" 
+                  {...form.register("peerName", {
+                    required: "User name is required"
                   })}
                   placeholder="Your name"
                   className="border-0 border-b border-[#48474c]/70 rounded-none bg-[#131317] px-3 text-[#fcf8fe] h-11 text-base focus-visible:ring-1 focus-visible:ring-[#a8a4ff]"
