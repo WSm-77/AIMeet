@@ -62,44 +62,56 @@ export const CallToolbar = () => {
     }
   };
 
+  const controlClass =
+    "h-11 w-11 rounded-full border border-[#48474c]/50 bg-[#25252b]/80 text-[#fcf8fe] shadow-none hover:bg-[#2c2b32]";
+
+  const activeControlClass =
+    "h-11 w-11 rounded-full border border-[#a8a4ff]/45 bg-[#3e1bff]/35 text-[#fcf8fe] shadow-none hover:bg-[#3e1bff]/55";
+
   return (
-    <footer className="flex h-24 items-center justify-center gap-8 border-t border-stone-200">
-      <SettingsSheet>
-        <Button className="mr-4 gap-2 text-xs" variant="default" asChild>
-          <div>
-            <Settings size={20} strokeWidth={"1.5px"} />
-          </div>
+    <footer className="pointer-events-none fixed bottom-4 left-1/2 z-40 -translate-x-1/2">
+      <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-[#48474c]/45 bg-[#131317]/75 px-3 py-2 backdrop-blur-2xl">
+        <SettingsSheet>
+          <Button className={controlClass} variant="ghost" asChild>
+            <div>
+              <Settings size={20} strokeWidth={"1.5px"} />
+            </div>
+          </Button>
+        </SettingsSheet>
+
+        <Button
+          className={!isMicrophoneMuted && isMicrophoneOn ? activeControlClass : controlClass}
+          variant="ghost"
+          onClick={toggleMicrophoneState}
+        >
+          <MicIcon size={20} strokeWidth={"1.5px"} />
         </Button>
-      </SettingsSheet>
 
-      <Button
-        className="gap-2 text-xs"
-        variant={!isMicrophoneMuted && isMicrophoneOn ? "default" : "outline"}
-        onClick={toggleMicrophoneState}
-      >
-        <MicIcon size={20} strokeWidth={"1.5px"} />
-      </Button>
+        <Button
+          className={isCameraOn ? activeControlClass : controlClass}
+          variant="ghost"
+          onClick={toggleCamera}
+        >
+          <CameraIcon size={20} strokeWidth={"1.5px"} />
+        </Button>
 
-      <Button
-        className="gap-2 text-xs"
-        variant={isCameraOn ? "default" : "outline"}
-        onClick={toggleCamera}
-      >
-        <CameraIcon size={20} strokeWidth={"1.5px"} />
-      </Button>
+        <Button
+          className={screenStream ? activeControlClass : controlClass}
+          variant="ghost"
+          onClick={toggleScreenShare}
+        >
+          <ScreenshareIcon size={20} strokeWidth={"1.5px"} />
+        </Button>
 
-      <Button className="gap-2 text-xs" onClick={toggleScreenShare}>
-        <ScreenshareIcon size={20} strokeWidth={"1.5px"} />
-      </Button>
-
-      <Button
-        className="ml-4 gap-2 text-xs"
-        variant="destructive"
-        onClick={onHangUp}
-      >
-        <PhoneOff size={20} strokeWidth={"1.5px"} />
-        <span>Hang up</span>
-      </Button>
+        <Button
+          className="h-11 gap-2 rounded-full bg-[#ff6e84] px-4 text-xs font-semibold text-[#490013] hover:bg-[#ff8396]"
+          variant="ghost"
+          onClick={onHangUp}
+        >
+          <PhoneOff size={18} strokeWidth={"1.75px"} />
+          <span>Leave</span>
+        </Button>
+      </div>
     </footer>
   );
 };

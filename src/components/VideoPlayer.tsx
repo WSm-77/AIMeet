@@ -1,7 +1,8 @@
 import type { FC } from "react";
 import { useEffect, useRef } from "react";
 
-interface VideoPlayerProps extends React.HTMLAttributes<HTMLVideoElement> {
+interface VideoPlayerProps
+  extends React.VideoHTMLAttributes<HTMLVideoElement> {
   stream?: MediaStream | null;
   peerId?: string;
 }
