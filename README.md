@@ -31,59 +31,28 @@ npm install
 cp .env.example .env
 ```
 
-3. Set your Fishjam project ID and the scribe service URL in `.env`:
+3. Set your environment variables in `.env`:
 
 ```bash
-VITE_FISHJAM_ID=your_fishjam_id
-VITE_SCRIBE_SERVICE_URL=http://localhost:8787
-VITE_SCRIBE_NOTES_WS_URL=ws://localhost:8787/ws/notes
+VITE_FISHJAM_ID=<your_fishjam_id>
+GEMINI_API_KEY=<your_gemini_api_key>
+FISHJAM_MANAGEMENT_TOKEN=<your_fishjam_management_token>
+FISHJAM_ID=<your_fishjam_id>
+VITE_SCRIBE_SERVICE_URL=http://localhost:8787 # URL of the Scribe backend service
+VITE_SCRIBE_NOTES_WS_URL=ws://localhost:8787/ws/notes # WebSocket URL for receiving real-time updates of notes
+
 ```
 
 4. Run locally:
 
 ```bash
-npm run dev
+npm run dev -- --host
+
+# or with pnpm
+pnpm dev --host
 ```
 
-5. Open the URL printed by Vite (usually `http://localhost:5173`).
-
-## Scripts
-
-- `npm run dev` - start local development server
-- `npm run build` - type-check and create production build
-- `npm run preview` - preview production build locally
-- `npm run lint` - lint and auto-fix
-- `npm run lint:check` - lint in check-only mode
-- `npm run format` - format code with Prettier
-- `npm run format:check` - verify formatting
-
-## Project structure
-
-```text
-src/
-	components/      UI and call experience components
-	context/         room/session context providers
-	lib/             constants, room manager helpers, utility helpers
-	utils/blur/      MediaPipe blur processor + worker implementation
-public/shaders/    GLSL shader files used by blur renderer
-```
-
-## Environment variables
-
-- `VITE_FISHJAM_ID` - required Fishjam project ID
-
-See `.env.example` for defaults and optional variables.
-
-## Notes on background blur
-
-Background blur relies on:
-
-- `@mediapipe/tasks-vision` for segmentation,
-- a dedicated worker (`src/utils/blur/BlurProcessorWorker.ts`) to keep UI smooth,
-- shader files from `public/shaders/blur`.
-
-If blur is not working, verify that static assets from `public/` are served correctly
-and your browser supports required Web APIs.
+5. Open the provided URL (usually `http://localhost:5170`).
 
 ## Troubleshooting
 
