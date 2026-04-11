@@ -11,7 +11,7 @@
     "format": "prettier --write . --ignore-path ./.eslintignore",
     "format:check": "prettier --check . --ignore-path ./.eslintignore",
     "preview": "vite preview",
-    "scribe:dev": "tsx scribe/src/index.ts"
+    "scribe:dev": "tsx --env-file=.env scribe/src/index.ts"
   },
   "dependencies": {
     "@fishjam-cloud/js-server-sdk": "^0.25.1",

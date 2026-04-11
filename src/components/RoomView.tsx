@@ -1,9 +1,12 @@
 import { type PeerId, type Track, usePeers } from "@fishjam-cloud/react-client";
 import { ChevronLeft, ChevronRight, MessageSquareText, Sparkles, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { SCRIBE_SERVICE_URL } from "@/lib/consts";
-import { getPersistedFormValues } from "@/lib/utils";
+import { ScribeServiceUnavailableError, inviteAgents } from "@/lib/scribeService";
+import { useRoom } from "@/context/RoomContext";
+import { INVITABLE_AGENTS, type InvitableAgentId } from "@/types";
 import { CallToolbar } from "./CallToolbar";
 import { InteractiveNotes } from "./InteractiveNotes";
 import { Tile } from "./Tile";
@@ -75,11 +78,11 @@ const toTimeLabel = (isoDate: string): string => {
 
 export const RoomView = () => {
   const { localPeer, remotePeers } = usePeers<{ displayName: string }>();
+  const { roomId } = useRoom();
   const [aiNotes, setAiNotes] = useState<AiNoteItem[]>([]);
   const [aiNotesStatus, setAiNotesStatus] = useState<
     "connecting" | "connected" | "disconnected"
   >("connecting");
-  const roomId = useMemo(() => getPersistedFormValues().roomName ?? "", []);
 
   useEffect(() => {
     let isDisposed = false;
@@ -310,6 +313,39 @@ export const RoomView = () => {
 
   const participantCount = (localPeer ? 1 : 0) + remotePeers.length;
 
+  const onInviteAgents = async (agentIds: InvitableAgentId[]) => {
+    try {
+      const invited = await inviteAgents(agentIds, roomId || undefined);
+      const invitedLabel = invited
+        .map((id) => INVITABLE_AGENTS.find((agent) => agent.id === id)?.label ?? id)
+        .join(", ");
+
+      toast.success(
+        invited.length === 1 ? "Agent invited" : `Invited ${invited.length} agents`,
+        {
+          position: "top-center",
+          description: invitedLabel,
+        },
+      );
+    } catch (error) {
+      if (error instanceof ScribeServiceUnavailableError) {
+        toast.error("Could not invite agents", {
+          position: "top-center",
+          description: "Local scribe service is unavailable. Run pnpm scribe:dev and try again.",
+        });
+        return;
+      }
+
+      toast.error("Failed to invite agents", {
+        position: "top-center",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Unexpected error while inviting agents",
+      });
+    }
+  };
+
   return (
     <div className="relative flex h-full w-full flex-col bg-[#0e0e12] text-[#fcf8fe]">
       <div className="pointer-events-none absolute inset-0">
@@ -317,15 +353,27 @@ export const RoomView = () => {
         <div className="absolute right-8 top-10 h-80 w-80 rounded-full bg-[#00eefc]/10 blur-3xl" />
       </div>
 
-      <header className="relative flex items-center justify-between border-b border-[#48474c]/35 bg-[#131317]/80 px-4 py-3 backdrop-blur-xl lg:px-6">
-        <div>
+      <header className="relative grid gap-3 border-b border-[#48474c]/35 bg-[#131317]/80 px-4 py-3 backdrop-blur-xl md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center lg:px-6">
+        <div className="min-w-0">
           <p className="font-body text-xs uppercase tracking-[0.24em] text-[#acaab0]">
             Neon Nocturne
           </p>
-          <h1 className="font-headline text-2xl leading-none">Project Sync</h1>
+          <h1 className="font-headline truncate text-2xl leading-none">Project Sync</h1>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center justify-center">
+          <div className="flex max-w-full items-center gap-2 rounded-full border border-[#48474c]/40 bg-[#25252b]/85 px-4 py-2 text-xs text-[#a8a4ff] md:text-sm">
+            <span className="font-body uppercase tracking-[0.18em] text-[#acaab0]">
+              Fishjam room
+            </span>
+            <span className="text-[#48474c]">|</span>
+            <span className="max-w-[42vw] truncate font-mono text-[#fcf8fe]">
+              {roomId ?? "Room id unavailable"}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2">
           <div className="flex items-center gap-2 rounded-full bg-[#25252b]/80 px-4 py-2 text-sm text-[#a8a4ff]">
             <span className="h-2 w-2 rounded-full bg-[#a8a4ff]" />
             LIVE
@@ -549,6 +597,7 @@ export const RoomView = () => {
           isOpen: isAsideOpen,
           onToggle: () => setIsAsideOpen((prev) => !prev),
         }}
+        onInviteAgents={onInviteAgents}
       />
     </div>
   );

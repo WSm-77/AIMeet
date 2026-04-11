@@ -26,6 +26,7 @@ note items to Phoenix.
 - `PHOENIX_EVENT`: defaults to `save_note_item`
 - `SCRIBE_CONTROL_HOST`: defaults to `0.0.0.0`
 - `SCRIBE_CONTROL_PORT`: defaults to `8787`
+- `SCRIBE_ROOM_ID` (optional): specific FishJam room ID to join (overrides auto-discovery)
 
 ## Run
 
@@ -33,6 +34,18 @@ note items to Phoenix.
 
 ```bash
 pnpm scribe:dev
+```
+
+Or with a specific room ID (server-generated FishJam room ID, not user-created room ID):
+
+```bash
+pnpm scribe:dev --room-id <fishjam-room-id>
+```
+
+Or set the room ID via environment variable:
+
+```bash
+SCRIBE_ROOM_ID=<fishjam-room-id> pnpm scribe:dev
 ```
 
 The service follows the FishJam agent tutorial flow:
@@ -47,16 +60,32 @@ The service follows the FishJam agent tutorial flow:
 The service now exposes a control API so the app can spin up a fresh agent per meeting.
 
 - `GET /health`: service status + currently active sessions
-- `POST /sessions/join`: discover all rooms in FishJam and start agents only for rooms not yet joined by scribe
+- `POST /sessions/join`: join a specific room or discover all rooms in FishJam and start agents
 - `POST /sessions/leave`: stop all active sessions
 
-Example payload for `POST /sessions/join`:
+### Auto-discovery mode (no specific room)
+
+Example payload for `POST /sessions/join` (auto-discovery):
 
 ```json
 {}
 ```
 
-`POST /sessions/join` is idempotent for already joined rooms: it skips existing sessions and only starts new ones.
+This discovers all rooms in FishJam and starts agents only for rooms not yet joined by scribe. Skips empty rooms and those that have failed recently.
+
+### Targeted room mode (specific room ID)
+
+Example payload for `POST /sessions/join` (specific room):
+
+```json
+{
+  "room_id": "<fishjam-room-id>"
+}
+```
+
+This makes the agent join **only** the specified FishJam room. The room ID must be the server-generated FishJam room ID, not a user-created room ID.
+
+Both modes are idempotent: they skip existing sessions and only start new ones.
 
 ## Notes WebSocket
 
