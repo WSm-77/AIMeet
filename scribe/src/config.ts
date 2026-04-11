@@ -32,6 +32,7 @@ export type ScribeConfig = {
     host: string;
     port: number;
   };
+  targetRoomId?: string;
 };
 
 export const loadConfig = (): ScribeConfig => {
@@ -52,6 +53,16 @@ export const loadConfig = (): ScribeConfig => {
     throw new Error("Environment variable SCRIBE_CONTROL_PORT must be a positive integer");
   }
 
+  // Parse room-id from environment variable or command line arguments
+  let targetRoomId: string | undefined = readOptional("SCRIBE_ROOM_ID");
+  if (!targetRoomId && process.argv.length > 2) {
+    // Look for --room-id flag
+    const roomIdIndex = process.argv.indexOf("--room-id");
+    if (roomIdIndex !== -1 && roomIdIndex + 1 < process.argv.length) {
+      targetRoomId = process.argv[roomIdIndex + 1];
+    }
+  }
+
   return {
     gemini: {
       apiKey: geminiApiKey,
@@ -67,5 +78,6 @@ export const loadConfig = (): ScribeConfig => {
       host: process.env.SCRIBE_CONTROL_HOST ?? "0.0.0.0",
       port: parsedControlPort,
     },
+    targetRoomId,
   };
 };

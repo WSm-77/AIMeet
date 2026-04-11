@@ -3,7 +3,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { createServer } from "node:http";
 import { dirname } from "node:path";
 
-import { FishjamClient } from "@fishjam-cloud/js-server-sdk";
+import { FishjamClient, type RoomId } from "@fishjam-cloud/js-server-sdk";
 import WebSocket, { WebSocketServer } from "ws";
 
 import { loadConfig } from "./config";
@@ -287,7 +287,7 @@ class ScribeSessionManager {
     },
   ) {}
 
-  public async joinSession(): Promise<{
+  public async joinSession(targetRoomId?: string): Promise<{
     status: "started" | "already_active" | "partial_failure";
     joined: SessionStatus[];
     failed: JoinFailure[];
@@ -296,31 +296,88 @@ class ScribeSessionManager {
     return this.runExclusive(async () => {
       const fishjamId = this.options.defaultFishjamId;
       const fishjamClient = this.getOrCreateFishjamClient(fishjamId);
-      console.log(`Fetching rooms for Fishjam ${fishjamId}...`);
-      const allRooms = await fishjamClient.getAllRooms();
-      console.log(`Found ${allRooms.length} rooms on Fishjam ${fishjamId}`);
       const now = Date.now();
 
       const joined: SessionStatus[] = [];
       const failed: JoinFailure[] = [];
 
-      for (const room of allRooms) {
-        const roomId = room.id as unknown as string;
-        if (typeof roomId !== "string" || roomId.trim().length === 0) {
-          continue;
-        }
+      // If a specific room-id is provided, join only that room
+      if (targetRoomId) {
+        console.log(`Fetching room ${targetRoomId} from Fishjam ${fishjamId}...`);
+        try {
+          const room = await fishjamClient.getRoom(targetRoomId as unknown as RoomId);
+          if (!room) {
+            failed.push({
+              roomId: targetRoomId,
+              message: "Room not found",
+            });
+          } else if (this.sessionsByRoomId.has(targetRoomId)) {
+            console.log(`Session already active for room ${targetRoomId}`);
+          } else {
+            const nextSession = new ScribeSession({
+              roomId: targetRoomId,
+              fishjamId,
+              managementToken: this.options.managementToken,
+              subscribeMode: this.options.subscribeMode,
+              geminiApiKey: this.options.geminiApiKey,
+              geminiModel: this.options.geminiModel,
+              disablePcmStream: this.options.disablePcmStream,
+              modelAudioDumpPath: this.options.modelAudioDumpPath,
+              modelAudioDumpStream: this.options.modelAudioDumpStream,
+              notesHub: this.options.notesHub,
+            });
 
-        // Join only active rooms. This avoids stale empty rooms that often fail with 500.
-        if (!Array.isArray(room.peers) || room.peers.length === 0) {
-          continue;
-        }
+            try {
+              await nextSession.start();
+              this.sessionsByRoomId.set(targetRoomId, nextSession);
+              this.failedRoomsAt.delete(targetRoomId);
 
-        if (this.sessionsByRoomId.has(roomId)) continue;
+              const activeSession = nextSession.getStatus();
+              joined.push(activeSession);
+              console.debug(
+                `Scribe session active for room ${activeSession.roomId} on fishjam ${activeSession.fishjamId}`,
+              );
+            } catch (error) {
+              const message = describeJoinError(error);
+              failed.push({ roomId: targetRoomId, message });
+              this.failedRoomsAt.set(targetRoomId, now);
+              console.error(`Failed to join scribe room ${targetRoomId}`, error);
 
-        const failedAt = this.failedRoomsAt.get(roomId);
-        if (typeof failedAt === "number" && now - failedAt < FAILED_ROOM_RETRY_MS) {
-          continue;
+              try {
+                await nextSession.stop();
+              } catch {
+                // Ignore cleanup failures for sessions that did not start successfully.
+              }
+            }
+          }
+        } catch (error) {
+          const message = describeJoinError(error);
+          failed.push({ roomId: targetRoomId, message });
+          console.error(`Failed to fetch room ${targetRoomId}`, error);
         }
+      } else {
+        // Auto-discovery mode: join all active rooms
+        console.log(`Fetching rooms for Fishjam ${fishjamId}...`);
+        const allRooms = await fishjamClient.getAllRooms();
+        console.log(`Found ${allRooms.length} rooms on Fishjam ${fishjamId}`);
+
+        for (const room of allRooms) {
+          const roomId = room.id as unknown as string;
+          if (typeof roomId !== "string" || roomId.trim().length === 0) {
+            continue;
+          }
+
+          // Join only active rooms. This avoids stale empty rooms that often fail with 500.
+          if (!Array.isArray(room.peers) || room.peers.length === 0) {
+            continue;
+          }
+
+          if (this.sessionsByRoomId.has(roomId)) continue;
+
+          const failedAt = this.failedRoomsAt.get(roomId);
+          if (typeof failedAt === "number" && now - failedAt < FAILED_ROOM_RETRY_MS) {
+            continue;
+          }
 
         const nextSession = new ScribeSession({
           roomId,
@@ -357,6 +414,7 @@ class ScribeSessionManager {
           } catch {
             // Ignore cleanup failures for sessions that did not start successfully.
           }
+        }
         }
       }
 
@@ -476,9 +534,16 @@ const run = async (): Promise<void> => {
 
       if (request.method === "POST" && request.url === "/sessions/join") {
         try {
-          await readJsonBody(request);
-          console.log("Received request to join scribe session");
-          const result = await sessionManager.joinSession();
+          const body = await readJsonBody(request);
+          const targetRoomId = isRecord(body) && typeof body.room_id === "string" ? body.room_id : undefined;
+          
+          if (targetRoomId) {
+            console.log(`Received request to join scribe session for room ${targetRoomId}`);
+          } else {
+            console.log("Received request to join scribe session (auto-discovery mode)");
+          }
+          
+          const result = await sessionManager.joinSession(targetRoomId);
           const hasNoActiveSessions = result.active.length === 0;
           const hasFailures = result.failed.length > 0;
 
@@ -547,6 +612,24 @@ const run = async (): Promise<void> => {
       resolve();
     });
   });
+
+  // If a targetRoomId was provided via config, automatically join that room on startup
+  if (config.targetRoomId) {
+    console.log(`Auto-joining room ${config.targetRoomId} from configuration...`);
+    try {
+      const joinResult = await sessionManager.joinSession(config.targetRoomId);
+      if (joinResult.joined.length > 0) {
+        console.log(`Successfully joined room ${config.targetRoomId} on startup`);
+      } else if (joinResult.failed.length > 0) {
+        console.error(
+          `Failed to join room ${config.targetRoomId} on startup:`,
+          joinResult.failed[0]?.message,
+        );
+      }
+    } catch (error) {
+      console.error(`Error joining room ${config.targetRoomId} on startup:`, error);
+    }
+  }
 
   console.debug(
     `Scribe control server listening on http://${config.control.host}:${config.control.port}`,
