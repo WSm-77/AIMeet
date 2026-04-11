@@ -136,9 +136,7 @@ export const CallToolbar = ({ asideToggle, onInviteAgents }: CallToolbarProps) =
       await navigator.clipboard.writeText(roomName);
       toast.success("Room ID copied! Share it with others to join.", {
         position: "top-center",
-        description: (
-          <span className="font-mono text-xs text-black text-[#fcf8fe]">{roomName}</span>
-        ),
+        description: `${roomName}`
       });
     } catch {
       toast.error("Could not copy room ID", {
