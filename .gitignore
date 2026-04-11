@@ -30,3 +30,6 @@ credentials.json
 # Environment variables
 .env*
 !.env.example
+
+# Backup files
+*-backup*
