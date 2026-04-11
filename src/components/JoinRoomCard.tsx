@@ -244,7 +244,7 @@ export const JoinRoomCard: FC<Props> = ({ onFishjamIdChange, ...props }) => {
                       required: "Room ID is required"
                     })}
                     placeholder={isHost ? "Generated room ID" : "Paste shared room ID"}
-                    readOnly={isHost}
+                    readOnly={false}
                     className="border-0 border-b border-[#48474c]/70 rounded-none bg-[#131317] px-3 text-[#fcf8fe] h-11 text-base focus-visible:ring-1 focus-visible:ring-[#a8a4ff]"
                   />
 
