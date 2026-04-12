@@ -1,16 +1,16 @@
-import { SCRIBE_SERVICE_URL } from "@/lib/consts";
-import { type InvitableAgentId } from "@/types/agents";
+import { INVITABLE_AGENT_SERVICE_URLS } from "@/lib/consts";
+import {
+  INVITABLE_AGENTS_BY_ID,
+  type InvitableAgent,
+  type InvitableAgentId,
+} from "@/types/agents";
 
-const buildScribeUrl = (path: string): string => {
-  if (typeof window !== "undefined") {
-    return path;
-  }
+const normalizeServiceUrl = (serviceUrl: string): string =>
+  serviceUrl.endsWith("/") ? serviceUrl.slice(0, -1) : serviceUrl;
 
-  const base = SCRIBE_SERVICE_URL.endsWith("/")
-    ? SCRIBE_SERVICE_URL.slice(0, -1)
-    : SCRIBE_SERVICE_URL;
-
-  return `${base}${path}`;
+const buildAgentInviteUrl = (agent: InvitableAgent): string => {
+  const serviceBaseUrl = normalizeServiceUrl(INVITABLE_AGENT_SERVICE_URLS[agent.service.id]);
+  return `${serviceBaseUrl}${agent.service.invitePath}`;
 };
 
 export class ScribeServiceUnavailableError extends Error {
@@ -20,16 +20,30 @@ export class ScribeServiceUnavailableError extends Error {
   }
 }
 
-const createUnavailableError = (reason?: string): ScribeServiceUnavailableError => {
+const createUnavailableError = (
+  unavailableLabel: string,
+  reason?: string,
+): ScribeServiceUnavailableError => {
   const suffix = reason ? ` (${reason})` : "";
-  return new ScribeServiceUnavailableError(`Local scribe service is unavailable${suffix}`);
+  return new ScribeServiceUnavailableError(
+    `Local ${unavailableLabel} service is unavailable${suffix}`,
+  );
 };
 
-export const joinScribeSession = async (roomId?: string): Promise<void> => {
+const parseErrorDetails = async (response: Response): Promise<string> => {
+  try {
+    const payload = (await response.json()) as { error?: string };
+    return payload.error ?? "";
+  } catch {
+    return "";
+  }
+};
+
+const joinAgentSession = async (agent: InvitableAgent, roomId?: string): Promise<void> => {
   let response: Response;
 
   try {
-    response = await fetch(buildScribeUrl("/sessions/join"), {
+    response = await fetch(buildAgentInviteUrl(agent), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -37,28 +51,25 @@ export const joinScribeSession = async (roomId?: string): Promise<void> => {
       body: JSON.stringify(roomId ? { room_id: roomId } : {}),
     });
   } catch {
-    throw createUnavailableError("could not reach control API");
+    throw createUnavailableError(agent.service.unavailableLabel, "could not reach control API");
   }
 
   if (response.ok) return;
 
   if (response.status >= 500) {
-    throw createUnavailableError(`status ${response.status}`);
+    throw createUnavailableError(agent.service.unavailableLabel, `status ${response.status}`);
   }
 
-  let details = "";
-
-  try {
-    const payload = (await response.json()) as { error?: string };
-    details = payload.error ?? "";
-  } catch {
-    details = "";
-  }
+  const details = await parseErrorDetails(response);
 
   const suffix = details ? `: ${details}` : "";
   throw new Error(
-    `Failed to start scribe session (status ${response.status})${suffix}`,
+    `Failed to start ${agent.label.toLowerCase()} session (status ${response.status})${suffix}`,
   );
+};
+
+export const joinScribeSession = async (roomId?: string): Promise<void> => {
+  await joinAgentSession(INVITABLE_AGENTS_BY_ID.scribe, roomId);
 };
 
 export const inviteAgents = async (
@@ -68,6 +79,9 @@ export const inviteAgents = async (
   const uniqueSelected = Array.from(new Set(selectedAgentIds));
   if (uniqueSelected.length === 0) return [];
 
-  await joinScribeSession(roomId);
+  for (const agentId of uniqueSelected) {
+    await joinAgentSession(INVITABLE_AGENTS_BY_ID[agentId], roomId);
+  }
+
   return uniqueSelected;
 };
