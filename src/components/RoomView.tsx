@@ -20,7 +20,12 @@ export const RoomView = () => {
   const { localPeer, remotePeers } = usePeers<{ displayName?: string }>();
   const { roomId } = useRoom();
   const { aiNotes, aiNotesStatus } = useAiNotesFeed(roomId);
-  const { factCheckItems, factCheckStatus } = useFactCheckFeed(roomId);
+  const [activeAgents, setActiveAgents] = useState<Set<InvitableAgentId>>(new Set());
+  const isFactCheckerEnabled = activeAgents.has("factChecker");
+  const { factCheckItems, factCheckStatus } = useFactCheckFeed(
+    roomId,
+    isFactCheckerEnabled,
+  );
   const [currentPage, setCurrentPage] = useState(0);
   const [isAsideOpen, setIsAsideOpen] = useState(true);
   const [activeAsideTab, setActiveAsideTab] = useState<RoomSidebarTab>("notes");
@@ -171,6 +176,12 @@ export const RoomView = () => {
   const onInviteAgents = async (agentIds: InvitableAgentId[]): Promise<void> => {
     try {
       const invited = await inviteAgents(agentIds, roomId || undefined);
+      setActiveAgents((current) => {
+        const next = new Set(current);
+        invited.forEach((agentId) => next.add(agentId));
+        return next;
+      });
+
       const invitedLabel = invited
         .map((id) => INVITABLE_AGENTS.find((agent) => agent.id === id)?.label ?? id)
         .join(", ");

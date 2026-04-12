@@ -90,13 +90,18 @@ const getFactCheckFingerprint = ({
   timestamp: string;
 }): string => `${roomId ?? ""}|${timestamp}|${text}`;
 
-export const useFactCheckFeed = (roomId: string | null) => {
+export const useFactCheckFeed = (roomId: string | null, enabled = true) => {
   const [factCheckItems, setFactCheckItems] = useState<FactCheckItem[]>([]);
   const [factCheckStatus, setFactCheckStatus] =
-    useState<FeedConnectionStatus>("connecting");
+    useState<FeedConnectionStatus>(enabled ? "connecting" : "disconnected");
   const seenFactChecksRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
+    if (!enabled) {
+      setFactCheckStatus("disconnected");
+      return;
+    }
+
     let isDisposed = false;
     let isIntentionalClose = false;
     let socket: WebSocket | undefined;
@@ -208,7 +213,7 @@ export const useFactCheckFeed = (roomId: string | null) => {
         }
       }
     };
-  }, [roomId]);
+  }, [enabled, roomId]);
 
   return { factCheckItems, factCheckStatus };
 };

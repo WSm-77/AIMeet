@@ -20,6 +20,11 @@ export default defineConfig({
         target: scribeServiceUrl,
         changeOrigin: true,
       },
+      "/fact-check/sessions": {
+        target: factCheckerServiceUrl,
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/fact-check/, ""),
+      },
       "/ws/notes": {
         target: scribeServiceUrl,
         changeOrigin: true,

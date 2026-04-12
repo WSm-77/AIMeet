@@ -8,7 +8,16 @@ import {
 const normalizeServiceUrl = (serviceUrl: string): string =>
   serviceUrl.endsWith("/") ? serviceUrl.slice(0, -1) : serviceUrl;
 
+const getBrowserInvitePath = (agent: InvitableAgent): string => {
+  if (agent.id === "factChecker") return "/fact-check/sessions/join";
+  return agent.service.invitePath;
+};
+
 const buildAgentInviteUrl = (agent: InvitableAgent): string => {
+  if (typeof window !== "undefined") {
+    return getBrowserInvitePath(agent);
+  }
+
   const serviceBaseUrl = normalizeServiceUrl(INVITABLE_AGENT_SERVICE_URLS[agent.service.id]);
   return `${serviceBaseUrl}${agent.service.invitePath}`;
 };
