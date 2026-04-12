@@ -7,7 +7,7 @@ import { useRoom } from "@/context/RoomContext";
 import { INVITABLE_AGENTS, type InvitableAgentId } from "@/types/agents";
 import { CallToolbar } from "./CallToolbar";
 import { RoomHeader } from "./room-view/RoomHeader";
-import { RoomSidebar } from "./room-view/RoomSidebar";
+import { RoomSidebar, type RoomSidebarTab } from "./room-view/RoomSidebar";
 import { VideoStage } from "./room-view/VideoStage";
 import { useAiNotesFeed } from "./room-view/useAiNotesFeed";
 import { type CameraTile } from "./room-view/types";
@@ -20,6 +20,7 @@ export const RoomView = () => {
   const { aiNotes, aiNotesStatus } = useAiNotesFeed(roomId);
   const [currentPage, setCurrentPage] = useState(0);
   const [isAsideOpen, setIsAsideOpen] = useState(true);
+  const [activeAsideTab, setActiveAsideTab] = useState<RoomSidebarTab>("notes");
 
   const remoteStreamingPeer = remotePeers.find((peer) => peer.screenShareVideoTrack);
 
@@ -200,7 +201,13 @@ export const RoomView = () => {
           onSelectGridPage={setCurrentPage}
         />
 
-        <RoomSidebar isOpen={isAsideOpen} aiNotesStatus={aiNotesStatus} aiNotes={aiNotes} />
+        <RoomSidebar
+          isOpen={isAsideOpen}
+          aiNotesStatus={aiNotesStatus}
+          aiNotes={aiNotes}
+          activeTab={activeAsideTab}
+          onTabChange={setActiveAsideTab}
+        />
       </section>
 
       <CallToolbar
