@@ -183,7 +183,7 @@ export const RoomView = () => {
       <RoomHeader roomId={roomId} participantCount={participantCount} />
 
       <section
-        className={`relative grid flex-1 gap-4 overflow-y-auto px-4 pb-28 pt-4 lg:px-6 ${
+        className={`relative grid flex-1 min-h-0 gap-4 overflow-hidden px-4 pt-4 lg:px-6 ${
           isAsideOpen ? "lg:grid-cols-[minmax(0,1fr)_360px]" : "lg:grid-cols-[minmax(0,1fr)]"
         }`}
       >
