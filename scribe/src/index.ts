@@ -627,25 +627,32 @@ const run = async (): Promise<void> => {
     })();
   });
 
-  const notesWsServer = new WebSocketServer({
-    server,
-    path: "/ws/notes",
-  });
-  const factCheckWsServer = new WebSocketServer({
-    server,
-    path: "/ws/fact-check",
+  const wsServer = new WebSocketServer({
+    noServer: true,
+    perMessageDeflate: false,
   });
 
-  const registerWsServer = (wsServer: WebSocketServer, defaultPath: string) => {
-    wsServer.on("connection", (socket, request) => {
-      const parsedUrl = new URL(request.url ?? defaultPath, "http://localhost");
-      const roomId = parsedUrl.searchParams.get("roomId") ?? undefined;
-      notesHub.addClient(socket, roomId);
+  wsServer.on("connection", (socket, request) => {
+    const parsedUrl = new URL(request.url ?? "/ws/notes", "http://localhost");
+    const roomId = parsedUrl.searchParams.get("roomId") ?? undefined;
+    notesHub.addClient(socket, roomId);
+  });
+
+  server.on("upgrade", (request, socket, head) => {
+    const parsedUrl = new URL(request.url ?? "/", "http://localhost");
+    const isSupportedPath =
+      parsedUrl.pathname === "/ws/notes" ||
+      parsedUrl.pathname === "/ws/fact-check";
+
+    if (!isSupportedPath) {
+      socket.destroy();
+      return;
+    }
+
+    wsServer.handleUpgrade(request, socket, head, (upgradedSocket) => {
+      wsServer.emit("connection", upgradedSocket, request);
     });
-  };
-
-  registerWsServer(notesWsServer, "/ws/notes");
-  registerWsServer(factCheckWsServer, "/ws/fact-check");
+  });
 
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
@@ -694,14 +701,9 @@ const run = async (): Promise<void> => {
     await sessionManager.stopActiveSession();
 
     notesHub.closeAll();
-    await Promise.all([
-      new Promise<void>((resolve) => {
-        notesWsServer.close(() => resolve());
-      }),
-      new Promise<void>((resolve) => {
-        factCheckWsServer.close(() => resolve());
-      }),
-    ]);
+    await new Promise<void>((resolve) => {
+      wsServer.close(() => resolve());
+    });
 
     await new Promise<void>((resolve) => {
       server.close(() => resolve());
