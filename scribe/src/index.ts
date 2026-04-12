@@ -124,34 +124,36 @@ const writeJson = (
 };
 
 class NotesSocketHub {
-  private readonly clients = new Set<WebSocket>();
+  private readonly clients = new Map<WebSocket, string | undefined>();
 
-  public addClient(client: WebSocket): void {
-    this.clients.add(client);
+  public addClient(client: WebSocket, roomId?: string): void {
+    this.clients.set(client, roomId);
 
     client.on("close", () => {
-      this.clients.delete(client);
+      this.removeClient(client);
     });
 
     client.on("error", () => {
-      this.clients.delete(client);
+      this.removeClient(client);
     });
+  }
+
+  private removeClient(client: WebSocket): void {
+    this.clients.delete(client);
   }
 
   public broadcast(message: NotesSocketMessage): void {
     const serialized = JSON.stringify(message);
 
-    for (const client of this.clients) {
-      console.log(
-        `Broadcasting message to notes client: ${serialized}`,
-        client.readyState  == WebSocket.OPEN ? "(open)" : "(not open)");
+    for (const [client, roomId] of this.clients.entries()) {
       if (client.readyState !== WebSocket.OPEN) continue;
+      if (roomId && roomId !== message.roomId) continue;
       client.send(serialized);
     }
   }
 
   public closeAll(): void {
-    for (const client of this.clients) {
+    for (const client of this.clients.keys()) {
       if (client.readyState === WebSocket.OPEN) {
         client.close(1000, "Scribe shutdown");
       }
@@ -536,13 +538,13 @@ const run = async (): Promise<void> => {
         try {
           const body = await readJsonBody(request);
           const targetRoomId = isRecord(body) && typeof body.room_id === "string" ? body.room_id : undefined;
-          
+
           if (targetRoomId) {
             console.log(`Received request to join scribe session for room ${targetRoomId}`);
           } else {
             console.log("Received request to join scribe session (auto-discovery mode)");
           }
-          
+
           const result = await sessionManager.joinSession(targetRoomId);
           const hasNoActiveSessions = result.active.length === 0;
           const hasFailures = result.failed.length > 0;
@@ -602,8 +604,10 @@ const run = async (): Promise<void> => {
     path: "/ws/notes",
   });
 
-  notesWsServer.on("connection", (socket) => {
-    notesHub.addClient(socket);
+  notesWsServer.on("connection", (socket, request) => {
+    const parsedUrl = new URL(request.url ?? "/ws/notes", "http://localhost");
+    const roomId = parsedUrl.searchParams.get("roomId") ?? undefined;
+    notesHub.addClient(socket, roomId);
   });
 
   await new Promise<void>((resolve, reject) => {
