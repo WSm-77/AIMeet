@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { SCRIBE_SERVICE_URL } from "@/lib/consts";
 
-import { type AiNoteItem } from "./types";
+import { type AiNoteItem, type FeedConnectionStatus } from "./types";
 
 type ScribeNotePayload = {
   type?: "ai_note_text";
@@ -118,9 +118,8 @@ export const useAiNotesFeed = (roomId: string | null) => {
   } = useDataChannel();
 
   const [aiNotes, setAiNotes] = useState<AiNoteItem[]>([]);
-  const [aiNotesStatus, setAiNotesStatus] = useState<
-    "connecting" | "connected" | "disconnected"
-  >("connecting");
+  const [aiNotesStatus, setAiNotesStatus] =
+    useState<FeedConnectionStatus>("connecting");
   const seenNotesRef = useRef<Set<string>>(new Set());
 
   const addNote = ({ text, timestamp, roomId: messageRoomId }: { text: string; timestamp: string; roomId?: string }) => {

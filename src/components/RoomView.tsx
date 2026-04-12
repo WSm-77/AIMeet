@@ -1,5 +1,5 @@
 import { usePeers } from "@fishjam-cloud/react-client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { ScribeServiceUnavailableError, inviteAgents } from "@/services/scribeService";
@@ -9,7 +9,9 @@ import { CallToolbar } from "./CallToolbar";
 import { RoomHeader } from "./room-view/RoomHeader";
 import { RoomSidebar, type RoomSidebarTab } from "./room-view/RoomSidebar";
 import { VideoStage } from "./room-view/VideoStage";
+import { getVerdictLabel } from "./room-view/factCheckUtils";
 import { useAiNotesFeed } from "./room-view/useAiNotesFeed";
+import { useFactCheckFeed } from "./room-view/useFactCheckFeed";
 import { type CameraTile } from "./room-view/types";
 
 const CAMERAS_PER_PAGE = 4;
@@ -18,9 +20,35 @@ export const RoomView = () => {
   const { localPeer, remotePeers } = usePeers<{ displayName?: string }>();
   const { roomId } = useRoom();
   const { aiNotes, aiNotesStatus } = useAiNotesFeed(roomId);
+  const { factCheckItems, factCheckStatus } = useFactCheckFeed(roomId);
   const [currentPage, setCurrentPage] = useState(0);
   const [isAsideOpen, setIsAsideOpen] = useState(true);
   const [activeAsideTab, setActiveAsideTab] = useState<RoomSidebarTab>("notes");
+  const notifiedFactCheckIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (factCheckItems.length === 0) return;
+
+    const nextReports = [...factCheckItems]
+      .reverse()
+      .filter((item) => !notifiedFactCheckIdsRef.current.has(item.id));
+
+    if (nextReports.length === 0) return;
+
+    nextReports.forEach((item) => {
+      notifiedFactCheckIdsRef.current.add(item.id);
+      toast(getVerdictLabel(item.verdict), {
+        position: "top-center",
+        description: "New fact-check report",
+      });
+    });
+
+    if (notifiedFactCheckIdsRef.current.size > 300) {
+      notifiedFactCheckIdsRef.current = new Set(
+        factCheckItems.slice(0, 100).map((item) => item.id),
+      );
+    }
+  }, [factCheckItems]);
 
   const remoteStreamingPeer = remotePeers.find((peer) => peer.screenShareVideoTrack);
 
@@ -158,7 +186,7 @@ export const RoomView = () => {
       if (error instanceof ScribeServiceUnavailableError) {
         toast.error("Could not invite agents", {
           position: "top-center",
-          description: "Local scribe service is unavailable. Run pnpm scribe:dev and try again.",
+          description: `${error.message}. Run pnpm scribe:dev and pnpm fact-checker:dev, then try again.`,
         });
         return;
       }
@@ -205,6 +233,8 @@ export const RoomView = () => {
           isOpen={isAsideOpen}
           aiNotesStatus={aiNotesStatus}
           aiNotes={aiNotes}
+          factCheckStatus={factCheckStatus}
+          factCheckItems={factCheckItems}
           activeTab={activeAsideTab}
           onTabChange={setActiveAsideTab}
         />
