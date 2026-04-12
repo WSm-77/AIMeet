@@ -1,16 +1,19 @@
 import { Button } from "@components/ui/button";
 
-import { type AiNoteItem } from "./types";
+import { type AiNoteItem, type FactCheckItem, type FeedConnectionStatus } from "./types";
 import { ChatView } from "./ChatView";
 import { AiNotesView } from "./AiNotesView";
 import { CollaborativeNotesView } from "./CollaborativeNotesView";
+import { FactCheckView } from "./FactCheckView";
 
-export type RoomSidebarTab = "notes" | "chat" | "ai-notes";
+export type RoomSidebarTab = "notes" | "chat" | "scribe" | "fact-check";
 
 type RoomSidebarProps = {
   isOpen: boolean;
-  aiNotesStatus: "connecting" | "connected" | "disconnected";
+  aiNotesStatus: FeedConnectionStatus;
   aiNotes: AiNoteItem[];
+  factCheckStatus: FeedConnectionStatus;
+  factCheckItems: FactCheckItem[];
   activeTab: RoomSidebarTab;
   onTabChange: (tab: RoomSidebarTab) => void;
 };
@@ -21,13 +24,16 @@ const tabButtonClass =
 const notesTabs: Array<{ id: RoomSidebarTab; label: string }> = [
   { id: "notes", label: "Collaborative Notes" },
   { id: "chat", label: "Chat" },
-  { id: "ai-notes", label: "AI Notes" },
+  { id: "scribe", label: "Scribe" },
+  { id: "fact-check", label: "Fact Checker" },
 ];
 
 export const RoomSidebar = ({
   isOpen,
   aiNotesStatus,
   aiNotes,
+  factCheckStatus,
+  factCheckItems,
   activeTab,
   onTabChange,
 }: RoomSidebarProps) => {
@@ -60,9 +66,15 @@ export const RoomSidebar = ({
 
         <div className="h-full min-h-0 lg:flex-1">
           {activeTab === "notes" && <CollaborativeNotesView />}
-          {activeTab === "chat" && <ChatView />}
-          {activeTab === "ai-notes" && (
+          {activeTab === "chat" && <ChatView factCheckItems={factCheckItems} />}
+          {activeTab === "scribe" && (
             <AiNotesView aiNotesStatus={aiNotesStatus} aiNotes={aiNotes} />
+          )}
+          {activeTab === "fact-check" && (
+            <FactCheckView
+              factCheckStatus={factCheckStatus}
+              factCheckItems={factCheckItems}
+            />
           )}
         </div>
       </section>

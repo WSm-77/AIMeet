@@ -9,8 +9,19 @@ export type CameraTile = {
   isLocal?: boolean;
 };
 
+export type FeedConnectionStatus = "connecting" | "connected" | "disconnected";
+
 export type AiNoteItem = {
   id: string;
   text: string;
   timestamp: string;
+};
+
+export type FactCheckVerdict = "supported" | "refuted" | "uncertain";
+
+export type FactCheckItem = {
+  id: string;
+  text: string;
+  timestamp: string;
+  verdict: FactCheckVerdict;
 };

@@ -1,5 +1,6 @@
 import { usePeers } from "@fishjam-cloud/react-client";
-import { useState } from "react";
+import { AlertTriangle } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { ScribeServiceUnavailableError, inviteAgents } from "@/services/scribeService";
@@ -10,17 +11,67 @@ import { RoomHeader } from "./room-view/RoomHeader";
 import { RoomSidebar, type RoomSidebarTab } from "./room-view/RoomSidebar";
 import { VideoStage } from "./room-view/VideoStage";
 import { useAiNotesFeed } from "./room-view/useAiNotesFeed";
+import { useFactCheckFeed } from "./room-view/useFactCheckFeed";
 import { type CameraTile } from "./room-view/types";
 
 const CAMERAS_PER_PAGE = 4;
+const FACT_CHECK_TOAST_MAX_CHARS = 180;
+
+const toFactCheckPreview = (text: string): string => {
+  const compact = text.replace(/\s+/g, " ").trim();
+  if (compact.length <= FACT_CHECK_TOAST_MAX_CHARS) return compact;
+  return `${compact.slice(0, FACT_CHECK_TOAST_MAX_CHARS - 1)}...`;
+};
 
 export const RoomView = () => {
   const { localPeer, remotePeers } = usePeers<{ displayName?: string }>();
   const { roomId } = useRoom();
   const { aiNotes, aiNotesStatus } = useAiNotesFeed(roomId);
+  const [activeAgents, setActiveAgents] = useState<Set<InvitableAgentId>>(new Set());
+  const isFactCheckerEnabled = activeAgents.has("factChecker");
+  const { factCheckItems, factCheckStatus } = useFactCheckFeed(
+    roomId,
+    isFactCheckerEnabled,
+  );
   const [currentPage, setCurrentPage] = useState(0);
   const [isAsideOpen, setIsAsideOpen] = useState(true);
   const [activeAsideTab, setActiveAsideTab] = useState<RoomSidebarTab>("notes");
+  const notifiedFactCheckIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (factCheckItems.length === 0) return;
+
+    const nextReports = [...factCheckItems]
+      .reverse()
+      .filter((item) => !notifiedFactCheckIdsRef.current.has(item.id));
+
+    if (nextReports.length === 0) return;
+
+    nextReports.forEach((item) => {
+      notifiedFactCheckIdsRef.current.add(item.id);
+
+      if (item.verdict !== "refuted") return;
+
+      toast.error("Refuted claim detected", {
+        position: "top-center",
+        description: toFactCheckPreview(item.text),
+        duration: 8000,
+        icon: <AlertTriangle className="h-4 w-4 text-rose-200" />,
+        style: {
+          border: "1px solid rgba(251, 113, 133, 0.45)",
+          background: "rgba(76, 5, 25, 0.92)",
+          color: "#ffe4e6",
+          boxShadow: "0 10px 30px rgba(0, 0, 0, 0.35)",
+        },
+      });
+    });
+
+    if (notifiedFactCheckIdsRef.current.size > 300) {
+      notifiedFactCheckIdsRef.current = new Set(
+        factCheckItems.slice(0, 100).map((item) => item.id),
+      );
+    }
+  }, [factCheckItems]);
 
   const remoteStreamingPeer = remotePeers.find((peer) => peer.screenShareVideoTrack);
 
@@ -99,7 +150,9 @@ export const RoomView = () => {
       id: remoteStreamingPeer.id,
       name: `Screen share: ${remoteStreamingPeer.metadata?.peer?.displayName ?? remoteStreamingPeer.id}`,
       videoTrack: remoteStreamingPeer.screenShareVideoTrack,
-      audioTrack: remoteStreamingPeer.screenShareAudioTrack,
+      audioTrack:
+        remoteStreamingPeer.screenShareAudioTrack ??
+        remoteStreamingPeer.microphoneTrack,
     };
 
     // Top bar shows local camera + other remote cameras (excluding the streaming peer)
@@ -143,6 +196,12 @@ export const RoomView = () => {
   const onInviteAgents = async (agentIds: InvitableAgentId[]): Promise<void> => {
     try {
       const invited = await inviteAgents(agentIds, roomId || undefined);
+      setActiveAgents((current) => {
+        const next = new Set(current);
+        invited.forEach((agentId) => next.add(agentId));
+        return next;
+      });
+
       const invitedLabel = invited
         .map((id) => INVITABLE_AGENTS.find((agent) => agent.id === id)?.label ?? id)
         .join(", ");
@@ -158,7 +217,7 @@ export const RoomView = () => {
       if (error instanceof ScribeServiceUnavailableError) {
         toast.error("Could not invite agents", {
           position: "top-center",
-          description: "Local scribe service is unavailable. Run pnpm scribe:dev and try again.",
+          description: `${error.message}. Run pnpm scribe:dev and pnpm fact-checker:dev, then try again.`,
         });
         return;
       }
@@ -205,6 +264,8 @@ export const RoomView = () => {
           isOpen={isAsideOpen}
           aiNotesStatus={aiNotesStatus}
           aiNotes={aiNotes}
+          factCheckStatus={factCheckStatus}
+          factCheckItems={factCheckItems}
           activeTab={activeAsideTab}
           onTabChange={setActiveAsideTab}
         />
