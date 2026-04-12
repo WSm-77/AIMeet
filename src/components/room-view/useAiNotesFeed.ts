@@ -37,6 +37,18 @@ const getNoteFingerprint = ({
 }): string => `${roomId ?? ""}|${timestamp}|${text}`;
 
 const buildNotesWsUrl = (roomId: string | null): string => {
+  const currentProtocol = typeof window !== "undefined" ? window.location.protocol : undefined;
+  const useSameOriginPath = currentProtocol === "https:";
+
+  const withRoomQuery = (path: string): string => {
+    if (!roomId) return path;
+    return `${path}${path.includes("?") ? "&" : "?"}roomId=${encodeURIComponent(roomId)}`;
+  };
+
+  if (useSameOriginPath) {
+    return withRoomQuery("/ws/notes");
+  }
+
   const explicitUrl = import.meta.env.VITE_SCRIBE_NOTES_WS_URL;
   if (typeof explicitUrl === "string" && explicitUrl.trim().length > 0) {
     try {
@@ -64,9 +76,7 @@ const buildNotesWsUrl = (roomId: string | null): string => {
     serviceUrl.hash = "";
     return serviceUrl.toString();
   } catch {
-    return roomId
-      ? `ws://localhost:8787/ws/notes?roomId=${encodeURIComponent(roomId)}`
-      : "ws://localhost:8787/ws/notes";
+    return withRoomQuery("/ws/notes");
   }
 };
 

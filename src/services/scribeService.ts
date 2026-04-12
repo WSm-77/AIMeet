@@ -2,6 +2,10 @@ import { SCRIBE_SERVICE_URL } from "@/lib/consts";
 import { type InvitableAgentId } from "@/types/agents";
 
 const buildScribeUrl = (path: string): string => {
+  if (typeof window !== "undefined") {
+    return path;
+  }
+
   const base = SCRIBE_SERVICE_URL.endsWith("/")
     ? SCRIBE_SERVICE_URL.slice(0, -1)
     : SCRIBE_SERVICE_URL;
