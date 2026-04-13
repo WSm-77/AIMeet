@@ -1,32 +1,34 @@
-# AIMeet
+# AIMeet 🚀
 
 MeetAI / AIMeet — a web conferencing platform built natively around real-time AI agents.
 
+> [!NOTE]
+>
 > This repository contains the frontend and local agent runtimes used during development and demos.
 
-## Table of contents
+## Table of contents 📚
 
-- [AIMeet](#aimeet)
-  - [Table of contents](#table-of-contents)
-  - [Features](#features)
-  - [Demo videos](#demo-videos)
+- [AIMeet 🚀](#aimeet-)
+  - [Table of contents 📚](#table-of-contents-)
+  - [Features ✨](#features-)
+  - [Demo videos 🎬](#demo-videos-)
     - [Agents overview](#agents-overview)
     - [Screen sharing demo](#screen-sharing-demo)
-  - [Quick start](#quick-start)
-    - [Prerequisites](#prerequisites)
-    - [Environment variables](#environment-variables)
-    - [Available scripts](#available-scripts)
-    - [Project layout](#project-layout)
-    - [Typical local run flow](#typical-local-run-flow)
-    - [Troubleshooting](#troubleshooting)
+  - [Quick start ⚡](#quick-start-)
+    - [Prerequisites ✅](#prerequisites-)
+    - [Environment variables 🔑](#environment-variables-)
+    - [Available scripts 🧰](#available-scripts-)
+    - [Project layout 🗂️](#project-layout-️)
+    - [Typical local run flow ▶️](#typical-local-run-flow-️)
+    - [Troubleshooting 🛠️](#troubleshooting-️)
 
-## Features
+## Features ✨
 - Live Scribe — real-time transcription and collaborative notes.
 - Fact Checker — live claim analysis and flagging during meetings.
 - Agent-native architecture — Fishjam audio capture + Gemini Live.
 - Extensible agents — designed to add more in-call agents (e.g., Live Translator).
 
-## Demo videos
+## Demo videos 🎬
 
 Below are two demo recordings included in this repo.
 
@@ -35,11 +37,12 @@ Below are two demo recordings included in this repo.
 <video src="resources/agents_overview.mkv" controls width="100%">Your browser does not support the video tag.</video>
 
 ### Screen sharing demo
+
 <video src="resources/screen_sharing.mp4" controls width="100%">Your browser does not support the video tag.</video>
 
-## Quick start
+## Quick start ⚡
 
-### Prerequisites
+### Prerequisites ✅
 
 - Node.js 20+
 - npm or pnpm
@@ -76,7 +79,8 @@ npm run fact-checker:dev
 pnpm fact-checker:dev
 ```
 
-### Environment variables
+### Environment variables 🔑
+
 Create a `.env` file (copy from `.env.example` if present) and set the following values:
 
 | Variable | Required | Description |
@@ -88,7 +92,7 @@ Create a `.env` file (copy from `.env.example` if present) and set the following
 | `VITE_SCRIBE_SERVICE_URL` | Yes (for notes/AI) | Base URL for local scribe service |
 | `VITE_SCRIBE_NOTES_WS_URL` | Yes (for notes/AI) | WebSocket URL for real-time notes updates |
 
-### Available scripts
+### Available scripts 🧰
 
 | Command | Purpose |
 |---|---|
@@ -97,7 +101,8 @@ Create a `.env` file (copy from `.env.example` if present) and set the following
 | `npm run scribe:dev` | Start scribing agent service (local) |
 | `npm run fact-checker:dev` | Start fact-checker agent service (local) |
 
-### Project layout
+<a id="project-layout"></a>
+### Project layout 🗂️
 
 - `src/` — React app and components (see `src/assets/components`)
 - `scribe/` — scribe agent code and helpers
@@ -105,14 +110,14 @@ Create a `.env` file (copy from `.env.example` if present) and set the following
 - `resources/` — product notes, briefs and demo media (see resources/aimeet.md)
 - `public/` — static assets (shaders, etc.)
 
-### Typical local run flow
+### Typical local run flow ▶️
 
 1. Start frontend: `npm run dev -- --host`.
 2. Start agent helper(s): `npm run scribe:dev` and/or `npm run fact-checker:dev`.
 3. Open the app URL reported by Vite (usually `http://localhost:5170`).
 4. Join from multiple devices/tabs to test collaboration and agent panels.
 
-### Troubleshooting
+### Troubleshooting 🛠️
 
 - Blank room or connection issues: verify `.env` values and Fishjam credentials.
 - Devices not available: ensure camera/mic permissions and prefer HTTPS when required by the browser.
