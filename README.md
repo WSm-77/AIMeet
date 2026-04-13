@@ -34,11 +34,11 @@ Below are two demo recordings included in this repo.
 
 ### Agents overview
 
-<video src="resources/agents_overview.mkv" controls width="100%">Your browser does not support the video tag.</video>
+<video src="https://github.com/user-attachments/assets/6247764e-8f00-4f05-90ff-40c2430c180f" controls width="100%">Your browser does not support the video tag.</video>
 
 ### Screen sharing demo
 
-<video src="resources/screen_sharing.mp4" controls width="100%">Your browser does not support the video tag.</video>
+<video src="https://github.com/user-attachments/assets/35d2d919-544b-4fdf-ac37-9b52b8a49da9" controls width="100%">Your browser does not support the video tag.</video>
 
 ## Quick start ⚡
 
